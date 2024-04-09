@@ -1,76 +1,79 @@
 ---
-- name: Configure Apache (default)
-  lineinfile:
+- name: Configure Apache ports
+  ansible.builtin.lineinfile:
     dest: "{{ apache_server_root }}/ports.conf"
     regexp: "{{ item.regexp }}"
     line: "{{ item.line }}"
     state: present
-  with_items: "{{ apache_ports_configuration_items }}"
+  loop: "{{ apache_ports_configuration_items }}"
   notify: restart apache
   when: apache_ports_template is not defined
 
 - name: Configure Apache ports from template
-  copy:
+  ansible.builtin.copy:
     content: "{{ apache_ports_template }}"
     dest: "{{ apache_server_root }}/ports.conf"
-    mode: 0644
+    mode: "0644"
   when: apache_ports_template is defined
 
-- name: Enable Apache mods.
-  file:
+- name: Enable Apache mods
+  ansible.builtin.file:
     src: "{{ apache_server_root }}/mods-available/{{ item }}"
     dest: "{{ apache_server_root }}/mods-enabled/{{ item }}"
     state: link
-  with_items: "{{ apache_mods_enabled }}"
+  loop: "{{ apache_mods_enabled }}"
   notify: restart apache
 
-- name: Disable Apache mods.
-  file:
+- name: Disable Apache mods
+  ansible.builtin.file:
     path: "{{ apache_server_root }}/mods-enabled/{{ item }}"
     state: absent
-  with_items: "{{ apache_mods_disabled }}"
+  loop: "{{ apache_mods_disabled }}"
   notify: restart apache
 
-- name: Enable Apache configuration snippets.
-  file:
+- name: Enable Apache configuration snippets
+  ansible.builtin.file:
     src: "{{ apache_server_root }}/conf-available/{{ item }}"
     dest: "{{ apache_server_root }}/conf-enabled/{{ item }}"
     state: link
-  with_items: "{{ apache_conf_enabled }}"
+  loop: "{{ apache_conf_enabled }}"
   notify: restart apache
 
-- name: Disable Apache configuration snippets.
-  file:
+- name: Disable Apache configuration snippets
+  ansible.builtin.file:
     path: "{{ apache_server_root }}/conf-enabled/{{ item }}"
     state: absent
-  with_items: "{{ apache_conf_disabled }}"
+  loop: "{{ apache_conf_disabled }}"
   notify: restart apache
 
-- name: Check whether certificates defined in vhosts exist.
-  stat: "path={{ item.certificate_file }}"
+- name: Check whether certificates defined in vhosts exist
+  ansible.builtin.stat:
+    path: "{{ item.certificate_file }}"
   register: apache_ssl_certificates
-  with_items: "{{ apache_vhosts_ssl }}"
+  loop: "{{ apache_vhosts_ssl }}"
+  loop_control:
+    label: "{{ item.servername }}"
 
-- name: Add apache vhosts configuration.
-  template:
+- name: Add apache vhosts configuration
+  ansible.builtin.template:
     src: "{{ apache_vhosts_template }}"
     dest: "{{ apache_conf_path }}/sites-available/{{ apache_vhosts_filename }}"
     owner: root
     group: root
-    mode: 0644
+    mode: "0644"
   notify: restart apache
   when: apache_create_vhosts|bool
 
-- name: Add vhost symlink in sites-enabled.
-  file:
+- name: Add vhost symlink in sites-enabled
+  ansible.builtin.file:
     src: "{{ apache_conf_path }}/sites-available/{{ apache_vhosts_filename }}"
     dest: "{{ apache_conf_path }}/sites-enabled/{{ apache_vhosts_filename }}"
     state: link
   notify: restart apache
   when: apache_create_vhosts|bool
 
-- name: Remove default vhost in sites-enabled.
-  file:
+- name: Remove default vhost in sites-enabled
+  ansible.builtin.file:
     path: "{{ apache_conf_path }}/sites-enabled/{{ apache_default_vhost_filename }}"
     state: absent
   notify: restart apache
